@@ -302,18 +302,6 @@
     .send-btn:hover { transform: scale(1.08); box-shadow: 0 4px 12px rgba(0,119,204,0.4); }
     .send-btn:disabled { background: var(--border); cursor: not-allowed; transform: none; box-shadow: none; }
 
-    /* ── Conversation status badge ─────────────── */
-    .conv-badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
-    }
-    .conv-badge.active { background: #DCFCE7; color: #16A34A; }
-    .conv-badge .dot-pulse {
-      width: 6px; height: 6px; border-radius: 50%; background: #16A34A;
-      animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
-
     /* ── Search View ──────────────────────────── */
     #search-view {
       display: none; height: 100%;
@@ -330,8 +318,9 @@
       display: flex; gap: 10px; margin-bottom: 20px;
     }
 
+    .search-input-row .btn { width: auto; flex-shrink: 0; }
     .search-input-wrap {
-      flex: 1; position: relative;
+      flex: 1; min-width: 0; position: relative;
     }
     .search-input-wrap input {
       width: 100%; padding: 12px 16px 12px 42px;
@@ -346,7 +335,7 @@
     }
 
     .search-cols {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
       flex: 1; overflow: hidden;
     }
 
@@ -464,10 +453,6 @@
       <div class="logo-icon">🔍</div>
       <span>ES<em>Chat</em></span>
     </div>
-    <div class="nav-tabs">
-      <button class="nav-tab active" id="tab-chat" onclick="showView('chat')">💬 Chat</button>
-      <button class="nav-tab" id="tab-search" onclick="showView('search')">🔍 Search Demo</button>
-    </div>
     <div class="topbar-user">
       <div class="avatar" id="topbar-avatar"></div>
       <span id="topbar-name"></span>
@@ -501,7 +486,7 @@
         <div class="empty-state" id="chat-empty">
           <div class="empty-icon">💬</div>
           <h3>Select a user to chat</h3>
-          <p>Pick someone from the left panel to start a conversation</p>
+          <p>Pick someone from the left panel to send a message</p>
         </div>
 
         <!-- Chat Window (hidden until user selected) -->
@@ -510,74 +495,24 @@
             <div class="user-avatar" id="chat-partner-avatar" style="width:38px;height:38px;font-size:14px;"></div>
             <div class="chat-with-info">
               <div class="chat-with-name" id="chat-partner-name"></div>
-              <div id="conv-status" class="chat-with-status">No active conversation</div>
             </div>
-            <div class="chat-actions">
-              <button class="btn btn-sm btn-success" id="btn-start" onclick="startConversation()">▶ Start</button>
-              <button class="btn btn-sm btn-danger"  id="btn-end"   onclick="endConversation()" disabled>⏹ End</button>
-            </div>
+            <select id="chat-search-mode" onchange="onChatSearch()" style="padding:6px;border:1px solid var(--border);border-radius:8px;font-size:12px;">
+              <option value="autocomplete">Prefix</option>
+              <option value="keyword">Keyword</option>
+              <option value="semantic">Semantic</option>
+            </select>
+            <input id="chat-search" type="text" placeholder="🔍 Search in this chat…" oninput="onChatSearch()"
+              style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:220px;outline:none;" />
           </div>
 
           <div class="messages-wrap" id="messages-wrap"></div>
 
           <div class="message-input-area">
-            <textarea id="msg-input" rows="1" placeholder="Type a message… (Enter to send)" disabled
+            <textarea id="msg-input" rows="1" placeholder="Type a message… (Enter to send)"
               oninput="autoResize(this)"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}">
             </textarea>
-            <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>➤</button>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- Search View -->
-    <div id="search-view">
-      <div class="search-header">
-        <h2>🔍 Elasticsearch Search Demo</h2>
-        <p>Search over messages from <strong>ended conversations</strong>. Compare keyword (BM25) vs semantic (vector kNN) search.</p>
-      </div>
-
-      <div class="search-input-row">
-        <div class="search-input-wrap">
-          <span class="search-icon">🔍</span>
-          <input id="search-input" type="text" placeholder='Try: "connection issue", "not working", "billing problem"…'
-            onkeydown="if(event.key==='Enter') runSearch()" />
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="runSearch()" style="padding:0 20px;">Search</button>
-        <button class="btn btn-ghost btn-sm" onclick="clearSearch()">Clear</button>
-      </div>
-
-      <div class="search-cols">
-
-        <!-- Keyword -->
-        <div class="search-col">
-          <div class="search-col-header">
-            <span class="col-badge keyword">BM25</span>
-            <span class="search-col-title">Keyword Search</span>
-            <span class="search-col-desc">messages index</span>
-          </div>
-          <div class="search-results" id="keyword-results">
-            <div class="no-results">
-              <div class="icon">📝</div>
-              <p>Enter a query above to search</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Semantic -->
-        <div class="search-col">
-          <div class="search-col-header">
-            <span class="col-badge semantic">kNN Vector</span>
-            <span class="search-col-title">Semantic Search</span>
-            <span class="search-col-desc">conversations index</span>
-          </div>
-          <div class="search-results" id="semantic-results">
-            <div class="no-results">
-              <div class="icon">🧠</div>
-              <p>Enter a query above to search</p>
-            </div>
+            <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
           </div>
         </div>
 
@@ -598,7 +533,6 @@
   /* ── State ────────────────────────────────── */
   let currentUser     = null;
   let selectedUser    = null;
-  let conversationId  = null;
   let socket          = null;
   let usersInterval   = null;
 
@@ -668,6 +602,7 @@
       const msg = JSON.parse(e.data);
       if (msg.from_user !== currentUser && msg.from_user !== selectedUser) return;
       if (msg.to_user   !== currentUser && msg.to_user   !== selectedUser) return;
+      if (document.getElementById('chat-search').value.trim()) return;  // don't mix live messages into search results
       appendMessage(msg);
     };
     socket.onclose = () => setTimeout(connectWebSocket, 2000);
@@ -703,78 +638,59 @@
   }
 
   /* ── Select User ──────────────────────────── */
-  function selectUser(name) {
+  async function selectUser(name) {
     selectedUser = name;
     document.getElementById('chat-empty').style.display  = 'none';
     document.getElementById('chat-window').style.display = 'flex';
     document.getElementById('chat-partner-name').textContent   = name;
     document.getElementById('chat-partner-avatar').textContent = initials(name);
-    document.getElementById('messages-wrap').innerHTML = '';
-    updateConvStatus(false);
+    document.getElementById('chat-search').value = '';
     loadUsers();
+    await reloadHistory();
+    document.getElementById('msg-input').focus();
   }
 
-  /* ── Conversation ─────────────────────────── */
-  async function startConversation() {
-    if (!selectedUser) return;
+  /* ── Search inside the open chat ─────────── */
+  let chatSearchTimer = null, chatSearchSeq = 0;
+  function onChatSearch() {
+    clearTimeout(chatSearchTimer);
+    const q = document.getElementById('chat-search').value.trim();
+    if (!q) { reloadHistory(); return; }
+    chatSearchTimer = setTimeout(async () => {
+      const seq  = ++chatSearchSeq;
+      const mode = document.getElementById('chat-search-mode').value;
+      const partner = selectedUser;
+      try {
+        const d = await (await fetch(`${API}/search/${mode}?q=${encodeURIComponent(q)}&user=${encodeURIComponent(currentUser)}&partner=${encodeURIComponent(partner)}`)).json();
+        if (seq !== chatSearchSeq || partner !== selectedUser) return;
+        const wrap = document.getElementById('messages-wrap');
+        wrap.innerHTML = '';
+        if (!d.results.length) {
+          wrap.innerHTML = `<div class="no-results"><div class="icon">❌</div><p>No matches in this chat.</p></div>`;
+          return;
+        }
+        d.results.forEach(appendMessage);
+      } catch(e) {}
+    }, 150);
+  }
+
+  async function reloadHistory() {
+    const name = selectedUser;
+    document.getElementById('messages-wrap').innerHTML = '';
     try {
-      const res  = await fetch(`${API}/conversation/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from_user: currentUser, to_user: selectedUser })
-      });
-      const data = await res.json();
-      conversationId = data.conversation_id;
-      updateConvStatus(true);
-      enableChat(true);
-      toast('Conversation started!', 'success');
-    } catch(e) {
-      toast('Failed to start conversation', 'error');
-    }
-  }
-
-  async function endConversation() {
-    if (!conversationId) return;
-    try {
-      const res  = await fetch(`${API}/conversation/end/${conversationId}`, { method: 'POST' });
-      const data = await res.json();
-      toast(`✅ ${data.messages_stored || 0} messages stored in vector index`, 'success');
-      conversationId = null;
-      updateConvStatus(false);
-      enableChat(false);
-    } catch(e) {
-      toast('Failed to end conversation', 'error');
-    }
-  }
-
-  function updateConvStatus(active) {
-    const el = document.getElementById('conv-status');
-    document.getElementById('btn-start').disabled =  active;
-    document.getElementById('btn-end').disabled   = !active;
-    if (active) {
-      el.innerHTML = `<span class="conv-badge active"><span class="dot-pulse"></span> Active conversation</span>`;
-    } else {
-      el.textContent = 'No active conversation';
-    }
-  }
-
-  function enableChat(on) {
-    document.getElementById('msg-input').disabled = !on;
-    document.getElementById('send-btn').disabled  = !on;
-    if (on) document.getElementById('msg-input').focus();
+      const r = await fetch(`${API}/messages?user=${encodeURIComponent(currentUser)}&partner=${encodeURIComponent(name)}`);
+      const d = await r.json();
+      if (selectedUser === name) d.messages.forEach(appendMessage);
+    } catch(e) {}
   }
 
   /* ── Messaging ────────────────────────────── */
   async function sendMessage() {
     const input = document.getElementById('msg-input');
     const text  = input.value.trim();
-    if (!text || !conversationId || !socket) return;
+    if (!text || !selectedUser || !socket) return;
 
-    socket.send(JSON.stringify({
-      to:              selectedUser,
-      text:            text,
-      conversation_id: conversationId
-    }));
+    socket.send(JSON.stringify({ to: selectedUser, text: text }));
 
     input.value = '';
     input.style.height = 'auto';
@@ -798,80 +714,6 @@
 
   function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  /* ── Views ────────────────────────────────── */
-  function showView(view) {
-    document.getElementById('tab-chat').classList.toggle('active',   view==='chat');
-    document.getElementById('tab-search').classList.toggle('active', view==='search');
-    document.getElementById('chat-view').style.display   = view==='chat'   ? 'flex' : 'none';
-    document.getElementById('search-view').classList.toggle('active', view==='search');
-  }
-
-  /* ── Search ───────────────────────────────── */
-  async function runSearch() {
-    const q = document.getElementById('search-input').value.trim();
-    if (!q) { toast('Enter a search query', 'error'); return; }
-
-    setSearchLoading(true);
-
-    const [kwRes, semRes] = await Promise.allSettled([
-      fetch(`${API}/search/keyword?q=${encodeURIComponent(q)}`).then(r=>r.json()),
-      fetch(`${API}/search/semantic?q=${encodeURIComponent(q)}`).then(r=>r.json())
-    ]);
-
-    renderKeywordResults(kwRes.status==='fulfilled'  ? kwRes.value.results  : []);
-    renderSemanticResults(semRes.status==='fulfilled' ? semRes.value.results : []);
-  }
-
-  function setSearchLoading(on) {
-    const spinner = `<div class="searching"><div class="spinner"></div> Searching…</div>`;
-    if (on) {
-      document.getElementById('keyword-results').innerHTML  = spinner;
-      document.getElementById('semantic-results').innerHTML = spinner;
-    }
-  }
-
-  function renderKeywordResults(results) {
-    const el = document.getElementById('keyword-results');
-    if (!results.length) {
-      el.innerHTML = `<div class="no-results"><div class="icon">❌</div><p>No keyword matches found.<br/>Try semantic search →</p></div>`;
-      return;
-    }
-    el.innerHTML = results.map(r => `
-      <div class="result-card">
-        <div class="result-meta">
-          <span class="result-from">${r.from_user} → ${r.to_user}</span>
-          <span class="result-score">score: ${(r.score||0).toFixed(2)}</span>
-        </div>
-        <div class="result-text">${r.highlight && r.highlight.length ? r.highlight[0] : escHtml(r.text)}</div>
-        <div class="result-time">${formatTime(r.timestamp)}</div>
-      </div>
-    `).join('');
-  }
-
-  function renderSemanticResults(results) {
-    const el = document.getElementById('semantic-results');
-    if (!results.length) {
-      el.innerHTML = `<div class="no-results"><div class="icon">🧠</div><p>No semantic matches found.<br/>End a conversation first to populate the vector index.</p></div>`;
-      return;
-    }
-    el.innerHTML = results.map(r => `
-      <div class="result-card">
-        <div class="result-meta">
-          <span class="result-from">${r.from_user} → ${r.to_user}</span>
-          <span class="result-score">similarity: ${(r.score||0).toFixed(3)}</span>
-        </div>
-        <div class="result-text">${escHtml(r.text)}</div>
-        <div class="result-time">${formatTime(r.timestamp)}</div>
-      </div>
-    `).join('');
-  }
-
-  function clearSearch() {
-    document.getElementById('search-input').value = '';
-    document.getElementById('keyword-results').innerHTML  = `<div class="no-results"><div class="icon">📝</div><p>Enter a query above to search</p></div>`;
-    document.getElementById('semantic-results').innerHTML = `<div class="no-results"><div class="icon">🧠</div><p>Enter a query above to search</p></div>`;
   }
 
   /* ── Enter key on register ────────────────── */

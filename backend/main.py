@@ -6,14 +6,14 @@ from elasticsearch import Elasticsearch
 from openai import OpenAI
 from datetime import datetime
 from pydantic import BaseModel
+import asyncio
 import pathlib
 import os
 
 from setup import (
     create_index_if_not_exists,
     MESSAGES_INDEX,
-    CONVERSATIONS_INDEX,
-    CONVERSATIONS_MAPPING,
+    ensure_message_fields,
     MESSAGES_MAPPING,
     USERS_INDEX,
     USERS_MAPPING,
@@ -37,8 +37,6 @@ def get_embedding(text: str) -> list:
     return response.data[0].embedding
 
 # ──────────────────────────────────────────────
-# In-memory store (conversation state only — users now persisted in ES)
-active_conversations: dict = {}   # conversation_id -> { from_user, to_user, started_at }
 
 # ──────────────────────────────────────────────
 # App Lifespan — runs setup on startup
@@ -49,7 +47,8 @@ async def lifespan(app: FastAPI):
     print("\n🚀 App starting — running index setup...")
     create_index_if_not_exists(es, USERS_INDEX,         USERS_MAPPING)
     create_index_if_not_exists(es, MESSAGES_INDEX,      MESSAGES_MAPPING)
-    create_index_if_not_exists(es, CONVERSATIONS_INDEX, CONVERSATIONS_MAPPING)
+    # Older `messages` indexes have no embedding field yet — add it
+    ensure_message_fields(es)
     print("✅ Indices ready.\n")
     yield
 
@@ -98,10 +97,6 @@ manager = ConnectionManager()
 class RegisterRequest(BaseModel):
     name: str
 
-class StartConversationRequest(BaseModel):
-    from_user: str
-    to_user:   str
-
 # ──────────────────────────────────────────────
 # Routes — Users
 # ──────────────────────────────────────────────
@@ -145,71 +140,22 @@ def list_users():
     return {"users": users_list}
 
 # ──────────────────────────────────────────────
-# Routes — Conversation
-# ──────────────────────────────────────────────
-
-@app.post("/conversation/start")
-def start_conversation(req: StartConversationRequest):
-    conv_id = f"{req.from_user}__{req.to_user}__{int(datetime.utcnow().timestamp())}"
-    active_conversations[conv_id] = {
-        "from_user":  req.from_user,
-        "to_user":    req.to_user,
-        "started_at": datetime.utcnow().isoformat(),
-    }
-    return {"conversation_id": conv_id}
-
-
-@app.post("/conversation/end/{conversation_id}")
-def end_conversation(conversation_id: str):
-    if conversation_id not in active_conversations:
-        return {"error": "Conversation not found"}
-
-    # Fetch all messages for this conversation (sorted oldest → newest)
-    result = es.search(
-        index=MESSAGES_INDEX,
-        body={
-            "query": {"term": {"conversation_id": conversation_id}},
-            "sort":  [{"timestamp": "asc"}],
-            "size":  1000,
-        },
-    )
-
-    messages = [hit["_source"] for hit in result["hits"]["hits"]]
-
-    if not messages:
-        del active_conversations[conversation_id]
-        return {"message": "No messages found — nothing stored", "count": 0}
-
-    # Embed each message individually → store in `conversations` index
-    for msg in messages:
-        embedding = get_embedding(msg["text"])
-        es.index(
-            index=CONVERSATIONS_INDEX,
-            body={
-                "conversation_id": conversation_id,
-                "from_user":       msg["from_user"],
-                "to_user":         msg["to_user"],
-                "text":            msg["text"],
-                "timestamp":       msg["timestamp"],
-                "embedding":       embedding,
-            },
-        )
-
-    del active_conversations[conversation_id]
-    return {"message": "Conversation ended and stored in vector index", "messages_stored": len(messages)}
-
-# ──────────────────────────────────────────────
 # Routes — Messages
 # ──────────────────────────────────────────────
 
-@app.get("/messages/{conversation_id}")
-def get_messages(conversation_id: str):
+@app.get("/messages")
+def get_messages(user: str, partner: str):
+    """All messages between two users, oldest first."""
     result = es.search(
         index=MESSAGES_INDEX,
         body={
-            "query": {"term": {"conversation_id": conversation_id}},
+            "query": {"bool": {"should": [
+                {"bool": {"filter": [{"term": {"from_user": user}},    {"term": {"to_user": partner}}]}},
+                {"bool": {"filter": [{"term": {"from_user": partner}}, {"term": {"to_user": user}}]}},
+            ], "minimum_should_match": 1}},
             "sort":  [{"timestamp": "asc"}],
             "size":  1000,
+            "_source": {"excludes": ["embedding", "text_sayt"]},
         },
     )
     return {"messages": [hit["_source"] for hit in result["hits"]["hits"]]}
@@ -218,13 +164,23 @@ def get_messages(conversation_id: str):
 # Routes — Search
 # ──────────────────────────────────────────────
 
+def pair_filter(user: str | None, partner: str | None) -> list:
+    """Restrict a search to the chat between two users (both directions)."""
+    if not user or not partner:
+        return []
+    return [{"bool": {"should": [
+        {"bool": {"filter": [{"term": {"from_user": user}},    {"term": {"to_user": partner}}]}},
+        {"bool": {"filter": [{"term": {"from_user": partner}}, {"term": {"to_user": user}}]}},
+    ], "minimum_should_match": 1}}]
+
+
 @app.get("/search/keyword")
-def keyword_search(q: str):
+def keyword_search(q: str, user: str | None = None, partner: str | None = None):
     """BM25 full-text search over the `messages` index."""
     result = es.search(
         index=MESSAGES_INDEX,
         body={
-            "query": {"match": {"text": q}},
+            "query": {"bool": {"must": {"match": {"text": q}}, "filter": pair_filter(user, partner)}},
             "highlight": {"fields": {"text": {}}},
             "size": 20,
         },
@@ -235,7 +191,6 @@ def keyword_search(q: str):
             "from_user":       hit["_source"]["from_user"],
             "to_user":         hit["_source"]["to_user"],
             "timestamp":       hit["_source"]["timestamp"],
-            "conversation_id": hit["_source"]["conversation_id"],
             "highlight":       hit.get("highlight", {}).get("text", []),
             "score":           hit["_score"],
         }
@@ -244,18 +199,55 @@ def keyword_search(q: str):
     return {"results": hits, "total": result["hits"]["total"]["value"]}
 
 
+@app.get("/search/autocomplete")
+def autocomplete_search(q: str, user: str | None = None, partner: str | None = None):
+    """Search-as-you-type: matches partial words ("pas" -> "password")."""
+    result = es.search(
+        index=MESSAGES_INDEX,
+        body={
+            "_source": {"excludes": ["embedding", "text_sayt"]},
+            "size": 10,
+            "query": {"bool": {
+                "must": {"multi_match": {
+                    "query":  q,
+                    "type":   "bool_prefix",
+                    "fields": ["text_sayt", "text_sayt._2gram", "text_sayt._3gram"],
+                }},
+                "filter": pair_filter(user, partner),
+            }},
+            "highlight": {"fields": {"text_sayt": {}}, "pre_tags": ["<em>"], "post_tags": ["</em>"]},
+        },
+    )
+    hits = [
+        {
+            "text":      hit["_source"]["text"],
+            "from_user": hit["_source"]["from_user"],
+            "to_user":   hit["_source"]["to_user"],
+            "timestamp": hit["_source"]["timestamp"],
+            "score":     hit["_score"],
+        }
+        for hit in result["hits"]["hits"]
+    ]
+    return {"results": hits, "total": result["hits"]["total"]["value"]}
+
+
 @app.get("/search/semantic")
-def semantic_search(q: str):
-    """kNN vector search over the `conversations` index."""
+def semantic_search(q: str, min_similarity: float = 0.35, user: str | None = None, partner: str | None = None):
+    """kNN vector search over message embeddings in `messages`."""
     query_vector = get_embedding(q)
     result = es.search(
-        index=CONVERSATIONS_INDEX,
+        index=MESSAGES_INDEX,
         body={
+            "_source": {"excludes": ["embedding", "text_sayt"]},
             "knn": {
                 "field":        "embedding",
                 "query_vector": query_vector,
                 "k":            10,
                 "num_candidates": 100,
+                # Minimum raw cosine similarity (-1..1). Without it kNN always
+                # returns the k nearest docs, even unrelated ones like "hi".
+                "similarity":   min_similarity,
+                "filter":       pair_filter(user, partner),
             }
         },
     )
@@ -265,7 +257,6 @@ def semantic_search(q: str):
             "from_user":       hit["_source"]["from_user"],
             "to_user":         hit["_source"]["to_user"],
             "timestamp":       hit["_source"]["timestamp"],
-            "conversation_id": hit["_source"]["conversation_id"],
             "score":           hit["_score"],
         }
         for hit in result["hits"]["hits"]
@@ -281,25 +272,23 @@ async def websocket_endpoint(websocket: WebSocket, username: str):
     await manager.connect(username, websocket)
     try:
         while True:
-            # Expected payload: { "to": str, "text": str, "conversation_id": str }
+            # Expected payload: { "to": str, "text": str }
             data = await websocket.receive_json()
 
             msg = {
-                "conversation_id": data["conversation_id"],
                 "from_user":       username,
                 "to_user":         data["to"],
                 "text":            data["text"],
                 "timestamp":       datetime.utcnow().isoformat(),
             }
 
-            # Store in `messages` index (no embedding yet)
-            es.index(index=MESSAGES_INDEX, body=msg)
-
-            # Deliver to recipient (if online)
+            # Deliver first so chat stays instant, then embed + store
             await manager.send_to(data["to"], msg)
-
-            # Echo back to sender
             await manager.send_to(username, msg)
+
+            # Store in `messages` with its embedding (one vector per message)
+            doc = {**msg, "text_sayt": msg["text"], "embedding": await asyncio.to_thread(get_embedding, msg["text"])}
+            await asyncio.to_thread(lambda: es.index(index=MESSAGES_INDEX, body=doc))
 
     except WebSocketDisconnect:
         manager.disconnect(username)
