@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ES Chat — Elasticsearch Demo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Tokens ─────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:       #0077CC;
+      --blue-light: #E8F4FF;
+      --blue-dark:  #005A99;
+      --teal:       #00BFB3;
+      --teal-light: #E0FAF8;
+      --pink:       #F04E98;
+      --bg:         #F0F4F8;
+      --surface:    #FFFFFF;
+      --border:     #DDE3EC;
+      --text:       #1A202C;
+      --muted:      #64748B;
+      --online:     #22C55E;
+      --shadow:     0 2px 12px rgba(0,0,0,0.08);
+      --radius:     12px;
+      --radius-sm:  8px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Screens ───────────────────────────────── */
+    .screen { display: none; height: 100vh; }
+    .screen.active { display: flex; }
+
+    /* ── Register Screen ──────────────────────── */
+    #register-screen {
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #EBF5FF 0%, #E0FAF8 100%);
+    }
+
+    .register-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 48px 40px;
+      width: 420px;
+      box-shadow: 0 8px 40px rgba(0,119,204,0.12);
+      text-align: center;
+    }
+
+    .register-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--blue), var(--teal));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+
+    .logo-text { font-size: 22px; font-weight: 700; color: var(--text); }
+    .logo-text span { color: var(--blue); }
+
+    .register-card h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .register-card p  { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+
+    .input-group { margin-bottom: 16px; text-align: left; }
+    .input-group label { font-size: 13px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 6px; }
+
+    .input-group input {
+      width: 100%; padding: 12px 16px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px; font-family: 'Inter', sans-serif;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    .input-group input:focus { border-color: var(--blue); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 24px; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 600; font-family: 'Inter', sans-serif;
+      border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+      color: white; width: 100%;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,119,204,0.35); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-sm { padding: 7px 14px; font-size: 13px; }
+    .btn-success { background: #22C55E; color: white; }
+    .btn-success:hover { background: #16A34A; }
+    .btn-danger  { background: #EF4444; color: white; }
+    .btn-danger:hover  { background: #DC2626; }
+    .btn-ghost {
+      background: transparent; color: var(--muted);
+      border: 2px solid var(--border);
+    }
+    .btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
+    .btn-teal { background: linear-gradient(135deg, var(--teal), #008F89); color: white; }
+    .btn-teal:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,191,179,0.35); }
+
+    /* ── App Layout ───────────────────────────── */
+    #app-screen { flex-direction: column; }
+
+    .topbar {
+      height: 56px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 24px; gap: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      flex-shrink: 0;
+    }
+
+    .topbar-logo { display: flex; align-items: center; gap: 8px; margin-right: 8px; }
+    .topbar-logo .logo-icon { width: 32px; height: 32px; border-radius: 8px; font-size: 16px; }
+    .topbar-logo span { font-size: 16px; font-weight: 700; }
+    .topbar-logo span em { color: var(--blue); font-style: normal; }
+
+    .nav-tabs { display: flex; gap: 4px; }
+    .nav-tab {
+      padding: 6px 16px; border-radius: 6px;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s;
+      color: var(--muted); border: none; background: none;
+      font-family: 'Inter', sans-serif;
+    }
+    .nav-tab.active { background: var(--blue-light); color: var(--blue); font-weight: 600; }
+    .nav-tab:hover:not(.active) { background: var(--bg); color: var(--text); }
+
+    .topbar-user {
+      margin-left: auto; display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 500;
+    }
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue), var(--teal));
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 13px; font-weight: 700;
+    }
+
+    .app-body { flex: 1; overflow: hidden; }
+
+    /* ── Chat View ────────────────────────────── */
+    #chat-view {
+      display: flex; height: 100%; gap: 0;
+    }
+
+    .sidebar {
+      width: 280px; flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header h3 { font-size: 14px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .users-list { flex: 1; overflow-y: auto; padding: 8px; }
+
+    .user-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .user-item:hover { background: var(--bg); }
+    .user-item.selected { background: var(--blue-light); }
+
+    .user-avatar {
+      width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--blue), var(--teal));
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 13px; font-weight: 700;
+      position: relative;
+    }
+    .user-avatar .dot {
+      position: absolute; bottom: 0; right: 0;
+      width: 10px; height: 10px; border-radius: 50%;
+      border: 2px solid white;
+      background: #CBD5E1;
+    }
+    .user-avatar .dot.online { background: var(--online); }
+
+    .user-info { flex: 1; min-width: 0; }
+    .user-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-status { font-size: 11px; color: var(--muted); }
+
+    /* ── Chat Area ────────────────────────────── */
+    .chat-area {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    .chat-header {
+      padding: 12px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .chat-with-info { flex: 1; }
+    .chat-with-name { font-size: 16px; font-weight: 700; }
+    .chat-with-status { font-size: 12px; color: var(--muted); }
+
+    .chat-actions { display: flex; gap: 8px; }
+
+    .messages-wrap {
+      flex: 1; overflow-y: auto; padding: 20px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--muted); text-align: center; padding: 40px;
+    }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .empty-state p { font-size: 13px; }
+
+    .message {
+      display: flex; gap: 8px; max-width: 70%;
+      animation: msgIn 0.2s ease;
+    }
+    @keyframes msgIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+
+    .message.sent { align-self: flex-end; flex-direction: row-reverse; }
+    .message.received { align-self: flex-start; }
+
+    .msg-avatar {
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--teal), var(--blue));
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 10px; font-weight: 700;
+      align-self: flex-end;
+    }
+
+    .msg-bubble {
+      padding: 10px 14px; border-radius: 16px;
+      font-size: 14px; line-height: 1.5;
+    }
+    .message.received .msg-bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    .message.sent .msg-bubble {
+      background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg-time { font-size: 10px; color: var(--muted); margin-top: 4px; text-align: right; }
+    .message.received .msg-time { text-align: left; }
+
+    .message-input-area {
+      padding: 16px 20px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex; gap: 10px; align-items: flex-end;
+      flex-shrink: 0;
+    }
+
+    .message-input-area textarea {
+      flex: 1; padding: 10px 14px;
+      border: 2px solid var(--border); border-radius: 20px;
+      font-size: 14px; font-family: 'Inter', sans-serif;
+      resize: none; outline: none; max-height: 100px;
+      transition: border-color 0.2s;
+      line-height: 1.4;
+    }
+    .message-input-area textarea:focus { border-color: var(--blue); }
+    .message-input-area textarea:disabled { background: var(--bg); cursor: not-allowed; }
+
+    .send-btn {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+      border: none; cursor: pointer; color: white;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; flex-shrink: 0;
+      font-size: 18px;
+    }
+    .send-btn:hover { transform: scale(1.08); box-shadow: 0 4px 12px rgba(0,119,204,0.4); }
+    .send-btn:disabled { background: var(--border); cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* ── Conversation status badge ─────────────── */
+    .conv-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .conv-badge.active { background: #DCFCE7; color: #16A34A; }
+    .conv-badge .dot-pulse {
+      width: 6px; height: 6px; border-radius: 50%; background: #16A34A;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
+
+    /* ── Search View ──────────────────────────── */
+    #search-view {
+      display: none; height: 100%;
+      flex-direction: column; padding: 24px;
+      overflow: hidden;
+    }
+    #search-view.active { display: flex; }
+
+    .search-header { margin-bottom: 20px; }
+    .search-header h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .search-header p { font-size: 13px; color: var(--muted); }
+
+    .search-input-row {
+      display: flex; gap: 10px; margin-bottom: 20px;
+    }
+
+    .search-input-wrap {
+      flex: 1; position: relative;
+    }
+    .search-input-wrap input {
+      width: 100%; padding: 12px 16px 12px 42px;
+      border: 2px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 14px; font-family: 'Inter', sans-serif; outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input-wrap input:focus { border-color: var(--blue); }
+    .search-input-wrap .search-icon {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); font-size: 16px;
+    }
+
+    .search-cols {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+      flex: 1; overflow: hidden;
+    }
+
+    .search-col {
+      background: var(--surface); border-radius: var(--radius);
+      border: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+
+    .search-col-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .col-badge {
+      padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .col-badge.keyword  { background: var(--blue-light); color: var(--blue); }
+    .col-badge.semantic { background: var(--teal-light); color: #008F89; }
+
+    .search-col-title { font-size: 14px; font-weight: 600; }
+    .search-col-desc  { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+    .search-results {
+      flex: 1; overflow-y: auto; padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .result-card {
+      padding: 12px 14px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border); background: var(--bg);
+      animation: fadeIn 0.25s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(4px); } to { opacity:1; transform: translateY(0); } }
+
+    .result-meta {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    }
+    .result-from {
+      font-size: 12px; font-weight: 700; color: var(--blue);
+      background: var(--blue-light); padding: 2px 8px; border-radius: 20px;
+    }
+    .result-score {
+      margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 500;
+    }
+
+    .result-text { font-size: 13px; line-height: 1.5; }
+    .result-text mark { background: #FEF9C3; color: #854D0E; border-radius: 2px; padding: 0 2px; }
+    .result-time { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    .no-results {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--muted); text-align: center; padding: 24px;
+    }
+    .no-results .icon { font-size: 32px; margin-bottom: 8px; }
+    .no-results p { font-size: 13px; }
+
+    .searching {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: var(--muted);
+    }
+    .spinner {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2px solid var(--border); border-top-color: var(--blue);
+      animation: spin 0.7s linear infinite; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 999;
+      background: #1A202C; color: white;
+      padding: 12px 20px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500;
+      transform: translateY(80px); opacity: 0;
+      transition: all 0.3s; pointer-events: none;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { background: #16A34A; }
+    #toast.error   { background: #DC2626; }
+
+    /* ── Scrollbar ────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ══ Register Screen ═══════════════════════════════════ -->
+<div id="register-screen" class="screen active">
+  <div class="register-card">
+    <div class="register-logo">
+      <div class="logo-icon">🔍</div>
+      <div class="logo-text">ES<span>Chat</span></div>
+    </div>
+    <h2>Welcome</h2>
+    <p>Enter your name to join and start chatting.<br/>Messages are stored & searched with Elasticsearch.</p>
+    <div class="input-group">
+      <label>Your Name</label>
+      <input id="name-input" type="text" placeholder="e.g. Alice" autocomplete="off" />
+    </div>
+    <button class="btn btn-primary" onclick="register()">Join Chat →</button>
+  </div>
+</div>
+
+<!-- ══ App Screen ════════════════════════════════════════ -->
+<div id="app-screen" class="screen">
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="logo-icon">🔍</div>
+      <span>ES<em>Chat</em></span>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" id="tab-chat" onclick="showView('chat')">💬 Chat</button>
+      <button class="nav-tab" id="tab-search" onclick="showView('search')">🔍 Search Demo</button>
+    </div>
+    <div class="topbar-user">
+      <div class="avatar" id="topbar-avatar"></div>
+      <span id="topbar-name"></span>
+      <button class="btn" style="margin-left:8px;padding:4px 10px;font-size:12px" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="app-body">
+
+    <!-- Chat View -->
+    <div id="chat-view" style="display:flex; height:100%;">
+
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <h3>Users</h3>
+        </div>
+        <div class="users-list" id="users-list">
+          <div class="empty-state" style="padding:20px;">
+            <div class="empty-icon">👥</div>
+            <p style="font-size:12px;">No other users yet</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Area -->
+      <div class="chat-area">
+
+        <!-- Empty State -->
+        <div class="empty-state" id="chat-empty">
+          <div class="empty-icon">💬</div>
+          <h3>Select a user to chat</h3>
+          <p>Pick someone from the left panel to start a conversation</p>
+        </div>
+
+        <!-- Chat Window (hidden until user selected) -->
+        <div id="chat-window" style="display:none; flex-direction:column; height:100%;">
+          <div class="chat-header">
+            <div class="user-avatar" id="chat-partner-avatar" style="width:38px;height:38px;font-size:14px;"></div>
+            <div class="chat-with-info">
+              <div class="chat-with-name" id="chat-partner-name"></div>
+              <div id="conv-status" class="chat-with-status">No active conversation</div>
+            </div>
+            <div class="chat-actions">
+              <button class="btn btn-sm btn-success" id="btn-start" onclick="startConversation()">▶ Start</button>
+              <button class="btn btn-sm btn-danger"  id="btn-end"   onclick="endConversation()" disabled>⏹ End</button>
+            </div>
+          </div>
+
+          <div class="messages-wrap" id="messages-wrap"></div>
+
+          <div class="message-input-area">
+            <textarea id="msg-input" rows="1" placeholder="Type a message… (Enter to send)" disabled
+              oninput="autoResize(this)"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}">
+            </textarea>
+            <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>➤</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Search View -->
+    <div id="search-view">
+      <div class="search-header">
+        <h2>🔍 Elasticsearch Search Demo</h2>
+        <p>Search over messages from <strong>ended conversations</strong>. Compare keyword (BM25) vs semantic (vector kNN) search.</p>
+      </div>
+
+      <div class="search-input-row">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input id="search-input" type="text" placeholder='Try: "connection issue", "not working", "billing problem"…'
+            onkeydown="if(event.key==='Enter') runSearch()" />
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="runSearch()" style="padding:0 20px;">Search</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearSearch()">Clear</button>
+      </div>
+
+      <div class="search-cols">
+
+        <!-- Keyword -->
+        <div class="search-col">
+          <div class="search-col-header">
+            <span class="col-badge keyword">BM25</span>
+            <span class="search-col-title">Keyword Search</span>
+            <span class="search-col-desc">messages index</span>
+          </div>
+          <div class="search-results" id="keyword-results">
+            <div class="no-results">
+              <div class="icon">📝</div>
+              <p>Enter a query above to search</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Semantic -->
+        <div class="search-col">
+          <div class="search-col-header">
+            <span class="col-badge semantic">kNN Vector</span>
+            <span class="search-col-title">Semantic Search</span>
+            <span class="search-col-desc">conversations index</span>
+          </div>
+          <div class="search-results" id="semantic-results">
+            <div class="no-results">
+              <div class="icon">🧠</div>
+              <p>Enter a query above to search</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  /* ── Config ───────────────────────────────── */
+  const API  = 'http://localhost:8000';
+  const WS   = 'ws://localhost:8000';
+
+  /* ── State ────────────────────────────────── */
+  let currentUser     = null;
+  let selectedUser    = null;
+  let conversationId  = null;
+  let socket          = null;
+  let usersInterval   = null;
+
+  /* ── Helpers ──────────────────────────────── */
+  function initials(name) { return name ? name.slice(0,2).toUpperCase() : '?'; }
+
+  function formatTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+  }
+
+  function toast(msg, type='') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show ' + type;
+    setTimeout(() => { el.className = ''; }, 3000);
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+  }
+
+  /* ── Register ─────────────────────────────── */
+  const TOKEN_KEY = 'es_chat_token';
+
+  function logout() {
+    try { localStorage.removeItem(TOKEN_KEY); } catch(e) {}
+    location.reload();
+  }
+
+  async function register(savedName) {
+    const name = (typeof savedName === 'string' ? savedName
+                  : document.getElementById('name-input').value).trim();
+    if (!name) { toast('Please enter your name', 'error'); return; }
+    try {
+      const res  = await fetch(`${API}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (data.error) { toast(data.error, 'error'); return; }
+      currentUser = data.name;
+      try { localStorage.setItem(TOKEN_KEY, currentUser); } catch(e) {}
+      enterApp();
+    } catch(e) {
+      toast('Cannot connect to server', 'error');
+    }
+  }
+
+  function enterApp() {
+    document.getElementById('register-screen').classList.remove('active');
+    document.getElementById('app-screen').classList.add('active');
+    document.getElementById('topbar-name').textContent = currentUser;
+    document.getElementById('topbar-avatar').textContent = initials(currentUser);
+    connectWebSocket();
+    loadUsers();
+    usersInterval = setInterval(loadUsers, 5000);
+  }
+
+  /* ── WebSocket ────────────────────────────── */
+  function connectWebSocket() {
+    socket = new WebSocket(`${WS}/ws/${encodeURIComponent(currentUser)}`);
+    socket.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.from_user !== currentUser && msg.from_user !== selectedUser) return;
+      if (msg.to_user   !== currentUser && msg.to_user   !== selectedUser) return;
+      appendMessage(msg);
+    };
+    socket.onclose = () => setTimeout(connectWebSocket, 2000);
+  }
+
+  /* ── Users ────────────────────────────────── */
+  async function loadUsers() {
+    try {
+      const res  = await fetch(`${API}/users`);
+      const data = await res.json();
+      renderUsers(data.users.filter(u => u.name !== currentUser));
+    } catch(e) {}
+  }
+
+  function renderUsers(users) {
+    const list = document.getElementById('users-list');
+    if (!users.length) {
+      list.innerHTML = `<div class="empty-state" style="padding:20px;"><div class="empty-icon">👥</div><p style="font-size:12px;">No other users yet</p></div>`;
+      return;
+    }
+    list.innerHTML = users.map(u => `
+      <div class="user-item ${selectedUser===u.name?'selected':''}" onclick="selectUser('${u.name}', ${u.online})">
+        <div class="user-avatar">
+          ${initials(u.name)}
+          <span class="dot ${u.online?'online':''}"></span>
+        </div>
+        <div class="user-info">
+          <div class="user-name">${u.name}</div>
+          <div class="user-status">${u.online ? '🟢 Online' : 'Offline'}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  /* ── Select User ──────────────────────────── */
+  function selectUser(name) {
+    selectedUser = name;
+    document.getElementById('chat-empty').style.display  = 'none';
+    document.getElementById('chat-window').style.display = 'flex';
+    document.getElementById('chat-partner-name').textContent   = name;
+    document.getElementById('chat-partner-avatar').textContent = initials(name);
+    document.getElementById('messages-wrap').innerHTML = '';
+    updateConvStatus(false);
+    loadUsers();
+  }
+
+  /* ── Conversation ─────────────────────────── */
+  async function startConversation() {
+    if (!selectedUser) return;
+    try {
+      const res  = await fetch(`${API}/conversation/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from_user: currentUser, to_user: selectedUser })
+      });
+      const data = await res.json();
+      conversationId = data.conversation_id;
+      updateConvStatus(true);
+      enableChat(true);
+      toast('Conversation started!', 'success');
+    } catch(e) {
+      toast('Failed to start conversation', 'error');
+    }
+  }
+
+  async function endConversation() {
+    if (!conversationId) return;
+    try {
+      const res  = await fetch(`${API}/conversation/end/${conversationId}`, { method: 'POST' });
+      const data = await res.json();
+      toast(`✅ ${data.messages_stored || 0} messages stored in vector index`, 'success');
+      conversationId = null;
+      updateConvStatus(false);
+      enableChat(false);
+    } catch(e) {
+      toast('Failed to end conversation', 'error');
+    }
+  }
+
+  function updateConvStatus(active) {
+    const el = document.getElementById('conv-status');
+    document.getElementById('btn-start').disabled =  active;
+    document.getElementById('btn-end').disabled   = !active;
+    if (active) {
+      el.innerHTML = `<span class="conv-badge active"><span class="dot-pulse"></span> Active conversation</span>`;
+    } else {
+      el.textContent = 'No active conversation';
+    }
+  }
+
+  function enableChat(on) {
+    document.getElementById('msg-input').disabled = !on;
+    document.getElementById('send-btn').disabled  = !on;
+    if (on) document.getElementById('msg-input').focus();
+  }
+
+  /* ── Messaging ────────────────────────────── */
+  async function sendMessage() {
+    const input = document.getElementById('msg-input');
+    const text  = input.value.trim();
+    if (!text || !conversationId || !socket) return;
+
+    socket.send(JSON.stringify({
+      to:              selectedUser,
+      text:            text,
+      conversation_id: conversationId
+    }));
+
+    input.value = '';
+    input.style.height = 'auto';
+  }
+
+  function appendMessage(msg) {
+    const wrap    = document.getElementById('messages-wrap');
+    const isSent  = msg.from_user === currentUser;
+    const div     = document.createElement('div');
+    div.className = `message ${isSent ? 'sent' : 'received'}`;
+    div.innerHTML = `
+      <div class="msg-avatar">${initials(msg.from_user)}</div>
+      <div>
+        <div class="msg-bubble">${escHtml(msg.text)}</div>
+        <div class="msg-time">${formatTime(msg.timestamp)}</div>
+      </div>
+    `;
+    wrap.appendChild(div);
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  /* ── Views ────────────────────────────────── */
+  function showView(view) {
+    document.getElementById('tab-chat').classList.toggle('active',   view==='chat');
+    document.getElementById('tab-search').classList.toggle('active', view==='search');
+    document.getElementById('chat-view').style.display   = view==='chat'   ? 'flex' : 'none';
+    document.getElementById('search-view').classList.toggle('active', view==='search');
+  }
+
+  /* ── Search ───────────────────────────────── */
+  async function runSearch() {
+    const q = document.getElementById('search-input').value.trim();
+    if (!q) { toast('Enter a search query', 'error'); return; }
+
+    setSearchLoading(true);
+
+    const [kwRes, semRes] = await Promise.allSettled([
+      fetch(`${API}/search/keyword?q=${encodeURIComponent(q)}`).then(r=>r.json()),
+      fetch(`${API}/search/semantic?q=${encodeURIComponent(q)}`).then(r=>r.json())
+    ]);
+
+    renderKeywordResults(kwRes.status==='fulfilled'  ? kwRes.value.results  : []);
+    renderSemanticResults(semRes.status==='fulfilled' ? semRes.value.results : []);
+  }
+
+  function setSearchLoading(on) {
+    const spinner = `<div class="searching"><div class="spinner"></div> Searching…</div>`;
+    if (on) {
+      document.getElementById('keyword-results').innerHTML  = spinner;
+      document.getElementById('semantic-results').innerHTML = spinner;
+    }
+  }
+
+  function renderKeywordResults(results) {
+    const el = document.getElementById('keyword-results');
+    if (!results.length) {
+      el.innerHTML = `<div class="no-results"><div class="icon">❌</div><p>No keyword matches found.<br/>Try semantic search →</p></div>`;
+      return;
+    }
+    el.innerHTML = results.map(r => `
+      <div class="result-card">
+        <div class="result-meta">
+          <span class="result-from">${r.from_user} → ${r.to_user}</span>
+          <span class="result-score">score: ${(r.score||0).toFixed(2)}</span>
+        </div>
+        <div class="result-text">${r.highlight && r.highlight.length ? r.highlight[0] : escHtml(r.text)}</div>
+        <div class="result-time">${formatTime(r.timestamp)}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderSemanticResults(results) {
+    const el = document.getElementById('semantic-results');
+    if (!results.length) {
+      el.innerHTML = `<div class="no-results"><div class="icon">🧠</div><p>No semantic matches found.<br/>End a conversation first to populate the vector index.</p></div>`;
+      return;
+    }
+    el.innerHTML = results.map(r => `
+      <div class="result-card">
+        <div class="result-meta">
+          <span class="result-from">${r.from_user} → ${r.to_user}</span>
+          <span class="result-score">similarity: ${(r.score||0).toFixed(3)}</span>
+        </div>
+        <div class="result-text">${escHtml(r.text)}</div>
+        <div class="result-time">${formatTime(r.timestamp)}</div>
+      </div>
+    `).join('');
+  }
+
+  function clearSearch() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('keyword-results').innerHTML  = `<div class="no-results"><div class="icon">📝</div><p>Enter a query above to search</p></div>`;
+    document.getElementById('semantic-results').innerHTML = `<div class="no-results"><div class="icon">🧠</div><p>Enter a query above to search</p></div>`;
+  }
+
+  /* ── Enter key on register ────────────────── */
+  document.getElementById('name-input')
+    .addEventListener('keydown', e => { if(e.key==='Enter') register(); });
+
+  /* ── Auto-login from stored token ─────────── */
+  (function autoLogin() {
+    let saved = null;
+    try { saved = localStorage.getItem(TOKEN_KEY); } catch(e) {}
+    if (saved) register(saved);
+  })();
+</script>
+</body>
+</html>
