@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     print("✅ Indices ready.\n")
     yield
 
-FRONTEND_DIR = pathlib.Path(__file__).parent.parent / "frontend"
+FRONTEND_DIR = pathlib.Path(__file__).parent / "frontend"
 
 app = FastAPI(title="ES Chat Demo", lifespan=lifespan)
 
