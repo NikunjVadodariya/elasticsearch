@@ -31,21 +31,23 @@ ul{list-style:disc;padding-left:.22in}li{margin-bottom:.06in}
  <div class="n">1</div></div>
 
 <div class="slide"><h1>Keyword search (BM25)</h1>
- <div class="card" style="left:.5in;top:1.25in;width:9in;height:.7in;background:var(--tealL)"></div>
- <div class="t" style="left:.7in;top:1.25in;width:8.6in;height:.7in;display:flex;align-items:center;font-size:14pt"><span><b>Stored message: </b>“I can't get into my account, the password reset email never arrives.”</span></div>
- <div class="card" style="left:.5in;top:2.2in;width:2in;height:1.4in;background:var(--blueL)"></div>
- <div class="card" style="left:2.833in;top:2.2in;width:2in;height:1.4in;background:var(--blueL)"></div>
- <div class="card" style="left:5.167in;top:2.2in;width:2in;height:1.4in;background:var(--blueL)"></div>
- <div class="card" style="left:7.5in;top:2.2in;width:2in;height:1.4in;background:var(--blueL)"></div>
- <div class="t step" style="left:.65in;top:2.3in;width:1.7in"><h4>1&nbsp; Analyze</h4><p>Lowercase, split on spaces and punctuation</p></div>
- <div class="t step" style="left:2.983in;top:2.3in;width:1.7in"><h4>2&nbsp; Tokens</h4><p>account · password · reset · email · arrives …</p></div>
- <div class="t step" style="left:5.317in;top:2.3in;width:1.7in"><h4>3&nbsp; Inverted index</h4><p>password → message 42, message 57</p></div>
- <div class="t step" style="left:7.65in;top:2.3in;width:1.7in"><h4>4&nbsp; BM25 score</h4><p>Rarer, more frequent terms rank higher</p></div>
- <div class="arrow" style="left:2.5in;top:2.65in;width:.333in">→</div><div class="arrow" style="left:4.833in;top:2.65in;width:.333in">→</div><div class="arrow" style="left:7.167in;top:2.65in;width:.333in">→</div>
- <div class="card" style="left:.5in;top:3.9in;width:4.35in;height:1.15in;background:var(--tealL)"></div>
- <div class="t" style="left:.7in;top:3.95in;width:4in;height:1.05in;display:flex;flex-direction:column;justify-content:center;font-size:14pt"><b style="color:#007A70">Query: account ✓</b>The word “account” is in the index, so the message matches.</div>
- <div class="card" style="left:5.15in;top:3.9in;width:4.35in;height:1.15in;background:var(--pinkL)"></div>
- <div class="t" style="left:5.35in;top:3.95in;width:4in;height:1.05in;display:flex;flex-direction:column;justify-content:center;font-size:14pt"><b style="color:var(--pink)">Query: login trouble ✗</b>Neither word appears in the message, so no results.</div>
+ <div class="card" style="left:.5in;top:1.2in;width:9in;height:.9in;background:var(--tealL)"></div>
+ <div class="t" style="left:.7in;top:1.2in;width:8.6in;height:.9in;display:flex;flex-direction:column;justify-content:center;font-size:12pt;line-height:1.3"><b>Stored messages</b><span>1&nbsp; “I can't get into my account, the password reset email never arrives.”</span><span>2&nbsp; “Try the password reset link again.”&nbsp;&nbsp;&nbsp;&nbsp; 3&nbsp; “My account works now.”</span></div>
+ <div class="card" style="left:.5in;top:2.25in;width:4.35in;height:1.95in;background:var(--blueL)"></div>
+ <div class="t" style="left:.7in;top:2.33in;width:3.95in"><div style="font-size:15pt;font-weight:700;color:var(--blue);margin-bottom:.08in">How an inverted index works</div>
+  <ol style="font-size:13pt;padding-left:.25in"><li style="margin-bottom:.06in">Split each message into words (tokens)</li><li style="margin-bottom:.06in">For each word, store the list of messages that contain it</li><li>A search looks the word up directly — no scanning every message</li></ol></div>
+ <div class="card" style="left:5.15in;top:2.25in;width:4.35in;height:1.95in;background:var(--blueL)"></div>
+ <div class="t" style="left:5.35in;top:2.33in;width:3.95in"><div style="font-size:15pt;font-weight:700;color:var(--blue);margin-bottom:.1in">The inverted index (word → messages)</div>
+  <table style="width:3.95in;border-collapse:collapse;font-size:12pt">
+   <tr style="background:var(--navy);color:#fff;height:.28in"><th style="text-align:left;padding:0 .08in;width:1.55in">Word</th><th style="text-align:left;padding:0 .08in">Found in messages</th></tr>
+   <tr style="background:#fff;height:.28in"><td style="border:1px solid #DDE3EC;padding:0 .08in"><b>account</b></td><td style="border:1px solid #DDE3EC;padding:0 .08in">1, 3</td></tr>
+   <tr style="background:#fff;height:.28in"><td style="border:1px solid #DDE3EC;padding:0 .08in"><b>password</b></td><td style="border:1px solid #DDE3EC;padding:0 .08in">1, 2</td></tr>
+   <tr style="background:#fff;height:.28in"><td style="border:1px solid #DDE3EC;padding:0 .08in"><b>email</b></td><td style="border:1px solid #DDE3EC;padding:0 .08in">1</td></tr>
+   <tr style="background:#fff;height:.28in"><td style="border:1px solid #DDE3EC;padding:0 .08in"><b>link</b></td><td style="border:1px solid #DDE3EC;padding:0 .08in">2</td></tr></table></div>
+ <div class="card" style="left:.5in;top:4.3in;width:4.35in;height:.85in;background:var(--tealL)"></div>
+ <div class="t" style="left:.7in;top:4.32in;width:4in;height:.81in;display:flex;flex-direction:column;justify-content:center;font-size:12pt"><b style="color:#007A70">Query: account ✓</b>Found in messages 1 and 3. BM25 ranks them — rarer, more frequent words score higher.</div>
+ <div class="card" style="left:5.15in;top:4.3in;width:4.35in;height:.85in;background:var(--pinkL)"></div>
+ <div class="t" style="left:5.35in;top:4.32in;width:4in;height:.81in;display:flex;flex-direction:column;justify-content:center;font-size:12pt"><b style="color:var(--pink)">Query: login trouble ✗</b>Neither word is in the index, so no results.</div>
  <div class="n">2</div></div>
 
 <div class="slide"><h1>Search as you type</h1>
