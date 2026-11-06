@@ -218,6 +218,30 @@
     }
 
     .chat-with-info { flex: 1; }
+
+    .chat-search-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 20px; background: var(--surface);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .chat-search-bar input[type=text] {
+      flex: 1; padding: 8px 12px; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); font-size: 13px; outline: none;
+      font-family: 'Inter', sans-serif;
+    }
+    .chat-search-bar input[type=text]:focus { border-color: var(--blue); }
+    .search-types { display: flex; background: var(--bg); border-radius: 8px; padding: 3px; gap: 2px; }
+    .stype {
+      border: none; background: transparent; cursor: pointer;
+      padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
+      color: var(--muted); font-family: 'Inter', sans-serif;
+    }
+    .stype.active { background: var(--blue); color: #fff; }
+    .stype:hover:not(.active) { color: var(--text); background: var(--border); }
+    .search-hint {
+      padding: 4px 20px 6px; font-size: 12px; color: var(--muted);
+      background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
     .chat-with-name { font-size: 16px; font-weight: 700; }
     .chat-with-status { font-size: 12px; color: var(--muted); }
 
@@ -496,14 +520,18 @@
             <div class="chat-with-info">
               <div class="chat-with-name" id="chat-partner-name"></div>
             </div>
-            <select id="chat-search-mode" onchange="onChatSearch()" style="padding:6px;border:1px solid var(--border);border-radius:8px;font-size:12px;">
-              <option value="autocomplete">Prefix</option>
-              <option value="keyword">Keyword</option>
-              <option value="semantic">Semantic</option>
-            </select>
-            <input id="chat-search" type="text" placeholder="🔍 Search in this chat…" oninput="onChatSearch()"
-              style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;width:220px;outline:none;" />
           </div>
+
+          <div class="chat-search-bar">
+            <div class="search-types" role="tablist" aria-label="Search type">
+              <button class="stype active" data-mode="autocomplete" onclick="setSearchMode('autocomplete')">Prefix</button>
+              <button class="stype" data-mode="keyword" onclick="setSearchMode('keyword')">Keyword</button>
+              <button class="stype" data-mode="semantic" onclick="setSearchMode('semantic')">Semantic</button>
+            </div>
+            <input id="chat-search" type="text" placeholder="🔍 Search in this chat…" oninput="onChatSearch()" />
+            <input id="chat-search-mode" type="hidden" value="autocomplete" />
+          </div>
+          <div class="search-hint" id="search-hint"></div>
 
           <div class="messages-wrap" id="messages-wrap"></div>
 
@@ -651,6 +679,18 @@
     document.getElementById('msg-input').focus();
   }
 
+  const SEARCH_HINTS = {
+    autocomplete: '<b>Prefix</b> — matches as you type, even partial words ("pas" → "password").',
+    keyword:      '<b>Keyword</b> — matches whole words exactly ("account" finds messages containing "account").',
+    semantic:     '<b>Semantic</b> — matches by meaning, not exact words ("login trouble" finds "can\'t get into my account").',
+  };
+  function setSearchMode(mode) {
+    document.getElementById('chat-search-mode').value = mode;
+    document.querySelectorAll('.stype').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    document.getElementById('search-hint').innerHTML = SEARCH_HINTS[mode];
+    onChatSearch();
+  }
+
   /* ── Search inside the open chat ─────────── */
   let chatSearchTimer = null, chatSearchSeq = 0;
   function onChatSearch() {
@@ -716,6 +756,8 @@
   function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
+
+  document.getElementById('search-hint').innerHTML = SEARCH_HINTS.autocomplete;
 
   /* ── Enter key on register ────────────────── */
   document.getElementById('name-input')
