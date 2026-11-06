@@ -1,0 +1,82 @@
+<!doctype html><html><head><meta charset="utf-8"><title>ES Search Demo</title>
+<style>
+@page { size: 10in 5.625in; margin: 0 }
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#0B1F3A;--teal:#00A99D;--tealL:#E0FAF8;--blue:#0077CC;--blueL:#E8F4FF;--pink:#D6336C;--pinkL:#FDE8F0;--muted:#5B6B80}
+body{font-family:Calibri,Carlito,"Helvetica Neue",Arial,sans-serif;color:var(--navy)}
+.slide{width:10in;height:5.625in;background:#F7F9FC;position:relative;overflow:hidden;page-break-after:always}
+h1{position:absolute;left:.5in;top:.3in;width:9in;height:.75in;font:700 36pt/.75in Cambria,Georgia,serif}
+.n{position:absolute;right:.5in;bottom:.15in;font-size:11pt;color:var(--muted)}
+.a{position:absolute}
+.card{position:absolute;border-radius:.12in}
+.t{position:absolute}
+.step h4{font-size:15pt;color:var(--blue);margin-bottom:.06in}
+.step p{font-size:12pt}
+ul{list-style:disc;padding-left:.22in}li{margin-bottom:.06in}
+.mono{font-family:"Courier New",monospace}
+.chip{position:absolute;height:.6in;border-radius:.3in;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700}
+.arrow{position:absolute;font-size:20pt;font-weight:700;color:var(--muted);text-align:center}
+@media screen{
+  body{background:#E9EDF3;padding:24px 0}
+  .slide{margin:0 auto 24px;box-shadow:0 4px 24px rgba(0,0,0,.15);page-break-after:auto}
+}
+</style></head><body>
+
+<div class="slide"><h1>What is Elasticsearch?</h1>
+ <ul class="t" style="left:.5in;top:1.3in;width:4.6in;font-size:17pt;line-height:1.25">
+  <li style="margin-bottom:.14in">A distributed search and analytics engine</li>
+  <li style="margin-bottom:.14in">Stores data as JSON documents inside indexes</li>
+  <li style="margin-bottom:.14in">Builds an inverted index: word → documents</li>
+  <li style="margin-bottom:.14in">Everything is available over a REST API</li>
+  <li>Fast, near real-time, scales across nodes</li></ul>
+ <div class="card" style="left:5.4in;top:1.3in;width:4.1in;height:3.3in;background:var(--navy)"></div>
+ <div class="t mono" style="left:5.6in;top:1.45in;width:3.7in;font-size:11pt;line-height:1.35;color:#fff">{<br>&nbsp;&nbsp;"from_user": "Bob",<br>&nbsp;&nbsp;"to_user": "John",<br><span style="color:#7FE6DE">&nbsp;&nbsp;"text": "I can't get into my account, the password reset email never arrives.",</span><br>&nbsp;&nbsp;"text_sayt": "…same text…",<br>&nbsp;&nbsp;"embedding": [0.012, -0.044, … ]<br>}</div>
+ <div class="t" style="left:5.4in;top:4.7in;width:4.1in;font-size:12pt;font-style:italic;color:var(--muted)">In this app, one chat message = one document in the messages index</div>
+ <div class="n">1</div></div>
+
+<div class="slide"><h1>Keyword search (BM25)</h1>
+ <div class="card" style="left:.5in;top:1.2in;width:9in;height:.9in;background:var(--tealL)"></div>
+ <div class="t" style="left:.7in;top:1.2in;width:8.6in;height:.9in;display:flex;flex-direction:column;justify-content:center;font-size:12pt;line-height:1.3"><b>Stored messages</b><span>1&nbsp; “I can't get into my account, the password reset email never arrives.”</span><span>2&nbsp; “Try the password reset link again.”&nbsp;&nbsp;&nbsp;&nbsp; 3&nbsp; “My account works now.”</span></div>
+ <div class="card" style="left:.5in;top:2.25in;width:4.35in;height:1.95in;background:var(--blueL)"></div>
+ <div class="t" style="left:.7in;top:2.33in;width:3.95in"><div style="font-size:15pt;font-weight:700;color:var(--blue);margin-bottom:.08in">How an inverted index works</div>
+  <ol style="font-size:13pt;padding-left:.25in"><li style="margin-bottom:.06in">Split each message into words (tokens)</li><li style="margin-bottom:.06in">For each word, store the list of messages that contain it</li><li>A search looks the word up directly — no scanning every message</li></ol></div>
+ <div class="card" style="left:5.15in;top:2.25in;width:4.35in;height:1.95in;background:var(--blueL)"></div>
+ <div class="t" style="left:5.35in;top:2.33in;width:3.95in"><div style="font-size:15pt;font-weight:700;color:var(--blue);margin-bottom:.1in">The inverted index (word → messages)</div>
+  <table style="width:3.95in;border-collapse:collapse;font-size:12pt">
+   <tr style="background:var(--navy);color:#fff;height:.28in"><th style="text-align:left;padding:0 .08in;width:1.55in">Word</th><th style="text-align:left;padding:0 .08in">Found in messages</th></tr>
+   <tr style="background:#fff;height:.28in"><td style="border:1px solid #DDE3EC;padding:0 .08in"><b>account</b></td><td style="border:1px solid #DDE3EC;padding:0 .08in">1, 3</td></tr>
+   <tr style="background:#fff;height:.28in"><td style="border:1px solid #DDE3EC;padding:0 .08in"><b>password</b></td><td style="border:1px solid #DDE3EC;padding:0 .08in">1, 2</td></tr>
+   <tr style="background:#fff;height:.28in"><td style="border:1px solid #DDE3EC;padding:0 .08in"><b>email</b></td><td style="border:1px solid #DDE3EC;padding:0 .08in">1</td></tr>
+   <tr style="background:#fff;height:.28in"><td style="border:1px solid #DDE3EC;padding:0 .08in"><b>link</b></td><td style="border:1px solid #DDE3EC;padding:0 .08in">2</td></tr></table></div>
+ <div class="card" style="left:.5in;top:4.3in;width:4.35in;height:.85in;background:var(--tealL)"></div>
+ <div class="t" style="left:.7in;top:4.32in;width:4in;height:.81in;display:flex;flex-direction:column;justify-content:center;font-size:12pt"><b style="color:#007A70">Query: account ✓</b>Found in messages 1 and 3. BM25 ranks them — rarer, more frequent words score higher.</div>
+ <div class="card" style="left:5.15in;top:4.3in;width:4.35in;height:.85in;background:var(--pinkL)"></div>
+ <div class="t" style="left:5.35in;top:4.32in;width:4in;height:.81in;display:flex;flex-direction:column;justify-content:center;font-size:12pt"><b style="color:var(--pink)">Query: login trouble ✗</b>Neither word is in the index, so no results.</div>
+ <div class="n">2</div></div>
+
+<div class="slide"><h1>Search as you type</h1>
+ <div class="chip mono" style="left:.5in;top:1.25in;width:1.1in;background:var(--blue);font-size:20pt">p</div><div class="arrow" style="left:1.6in;top:1.3in;width:.35in">→</div>
+ <div class="chip mono" style="left:1.95in;top:1.25in;width:1.1in;background:var(--blue);font-size:20pt">pa</div><div class="arrow" style="left:3.05in;top:1.3in;width:.35in">→</div>
+ <div class="chip mono" style="left:3.4in;top:1.25in;width:1.1in;background:var(--blue);font-size:20pt">pas</div><div class="arrow" style="left:4.5in;top:1.3in;width:.35in">→</div>
+ <div class="chip mono" style="left:4.85in;top:1.25in;width:1.1in;background:var(--blue);font-size:20pt">pass</div><div class="arrow" style="left:5.95in;top:1.3in;width:.35in">→</div>
+ <div class="chip" style="left:6.3in;top:1.25in;width:3.2in;background:var(--teal);font-size:16pt">“…password reset…”</div>
+ <div class="card" style="left:.5in;top:2.15in;width:4.35in;height:2.4in;background:#fff"></div>
+ <div class="t" style="left:.7in;top:2.25in;width:3.95in;font-size:13pt"><div style="font-size:16pt;font-weight:700;color:var(--blue);margin-bottom:.08in">When the message is saved</div><ul><li>Field text_sayt has type search_as_you_type</li><li>The text is analyzed into edge n-grams: p, pa, pas, pass … password</li><li>Word pairs (2- and 3-word shingles) are stored too</li></ul></div>
+ <div class="card" style="left:5.15in;top:2.15in;width:4.35in;height:2.4in;background:#fff"></div>
+ <div class="t" style="left:5.35in;top:2.25in;width:3.95in;font-size:13pt"><div style="font-size:16pt;font-weight:700;color:var(--blue);margin-bottom:.08in">When you type</div><ul><li>Your input goes through the same analyzer</li><li>bool_prefix query: earlier words match fully, the last word as a prefix</li><li>Runs on every keystroke (150 ms pause)</li></ul></div>
+ <div class="card" style="left:.5in;top:4.7in;width:9in;height:.5in;background:var(--tealL);display:flex;align-items:center;justify-content:center;font-size:15pt;font-weight:700;color:#007A70">“pas” finds “password” — no full word needed</div>
+ <div class="n">3</div></div>
+
+<div class="slide"><h1>Semantic (kNN vector) search</h1>
+ <div class="card" style="left:.5in;top:1.25in;width:2.85in;height:1.85in;background:var(--blueL)"></div>
+ <div class="card" style="left:3.575in;top:1.25in;width:2.85in;height:1.85in;background:var(--blueL)"></div>
+ <div class="card" style="left:6.65in;top:1.25in;width:2.85in;height:1.85in;background:var(--blueL)"></div>
+ <div class="t step" style="left:.65in;top:1.35in;width:2.55in"><h4>1&nbsp; Embed on send</h4><p style="font-size:13pt">Each message goes to OpenAI text-embedding-3-small and becomes 1536 numbers, saved in the embedding field.</p></div>
+ <div class="t step" style="left:3.725in;top:1.35in;width:2.55in"><h4>2&nbsp; Embed the query</h4><p style="font-size:13pt">“login trouble” is turned into a vector with the same model.</p></div>
+ <div class="t step" style="left:6.8in;top:1.35in;width:2.55in"><h4>3&nbsp; kNN + cosine</h4><p style="font-size:13pt">Elasticsearch finds the nearest vectors and drops anything below 0.35 similarity.</p></div>
+ <div class="card" style="left:.5in;top:3.35in;width:2.6in;height:.9in;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18pt;font-weight:700">login trouble</div>
+ <div class="arrow" style="left:3.1in;top:3.35in;width:.6in;height:.9in;line-height:.9in;font-size:32pt;color:var(--teal)">≈</div>
+ <div class="card" style="left:3.7in;top:3.35in;width:5.8in;height:.9in;background:var(--teal);color:#fff;display:flex;align-items:center;padding:0 .2in;font-size:14pt">“I can't get into my account, the password reset email never arrives.”</div>
+ <div class="t" style="left:.5in;top:4.4in;width:9in;font-size:14pt;color:var(--muted)">No shared words, but the same meaning — so the two vectors are close together. An unrelated message like “hi” scores lower and is filtered out.</div>
+ <div class="n">4</div></div>
+</body></html>

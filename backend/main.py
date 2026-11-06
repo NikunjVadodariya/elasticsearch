@@ -70,6 +70,11 @@ app.add_middleware(
 def serve_ui():
     return FileResponse(str(FRONTEND_DIR / "index.html"))
 
+@app.get("/doc")
+def serve_slides():
+    """The Elasticsearch search slides as an HTML page."""
+    return FileResponse(str(FRONTEND_DIR / "slides.html"))
+
 # ──────────────────────────────────────────────
 # WebSocket Connection Manager
 # ──────────────────────────────────────────────
