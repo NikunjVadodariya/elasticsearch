@@ -126,6 +126,13 @@ def register(req: RegisterRequest):
     return {"message": f"Welcome, {name}!", "name": name}
 
 
+@app.get("/session")
+def check_session(name: str):
+    """Does this user still exist? (Used by auto-login; never creates a user.)"""
+    result = es.search(index=USERS_INDEX, body={"query": {"term": {"name": name}}, "size": 1})
+    return {"exists": result["hits"]["total"]["value"] > 0}
+
+
 @app.get("/users")
 def list_users():
     result = es.search(

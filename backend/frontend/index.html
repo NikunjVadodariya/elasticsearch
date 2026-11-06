@@ -767,7 +767,15 @@
   (function autoLogin() {
     let saved = null;
     try { saved = localStorage.getItem(TOKEN_KEY); } catch(e) {}
-    if (saved) register(saved);
+    if (!saved) return;
+    // Only restore the session if the user still exists on the server
+    fetch(`${API}/session?name=${encodeURIComponent(saved)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.exists) { currentUser = saved; enterApp(); }
+        else { try { localStorage.removeItem(TOKEN_KEY); } catch(e) {} }
+      })
+      .catch(() => {});
   })();
 </script>
 </body>
